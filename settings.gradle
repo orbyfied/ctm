@@ -1,0 +1,5 @@
+rootProject.name = 'com.github.orbyfied.ctm'
+include 'logging'
+include 'argument'
+include 'util'
+

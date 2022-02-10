@@ -1,0 +1,45 @@
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+
+plugins {
+    id 'java'
+    id 'application'
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+}
+
+ext {
+    mGroup   = "com.github.orbyfied.ctm"
+    mVersion = "0.1.0R0"
+}
+
+group rootProject.mGroup
+version rootProject.mVersion
+
+dependencies {
+    implementation(project(":logging"))
+    implementation(project(":argument"))
+}
+
+final java.nio.file.Path projectDirPath = projectDir.toPath();
+
+static void copyf(java.nio.file.Path from, java.nio.file.Path to) {
+    if (!from.toFile().isDirectory()) {
+        Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
+        return
+    }
+
+    to.resolve(from.toFile().getName()).toFile().mkdirs();
+    for (File f : from.toFile().listFiles()) {
+        copyf(f.toPath(), to.resolve(f.getName()));
+    }
+}
+
+mainClassName = "com.github.orbyfied.com.github.orbyfied.ctm.Main"
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': mainClassName
+        )
+    }
+}
