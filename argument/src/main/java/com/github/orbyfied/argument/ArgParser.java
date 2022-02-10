@@ -2,8 +2,6 @@ package com.github.orbyfied.argument;
 
 import com.github.orbyfied.util.StringIterator;
 
-import java.io.File;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.function.BiFunction;
 
@@ -97,7 +95,7 @@ public class ArgParser {
                     String valstr = collectOptValueStr();
 
                     ArgType<?, ?> type = option.getType();
-                    Object val = type.convert(valstr);
+                    Object val = type.parse(valstr);
                     if (type.getUpper() == ConsumingUpper.class)
                         ((ArgType<ConsumingUpper, Object>)type).apply(consumingUpper.re(arg), val, operator);
                     else if (type.getUpper() == List.class) {
@@ -116,7 +114,7 @@ public class ArgParser {
                 String valstr = collectOptValueStr();
 
                 ArgType<?, ?> type = option.getType();
-                Object val = type.convert(valstr);
+                Object val = type.parse(valstr);
                 if (type.getUpper() == ConsumingUpper.class)
                     ((ArgType<ConsumingUpper, Object>)type).apply(consumingUpper.re(option.getName()), val, "=");
 

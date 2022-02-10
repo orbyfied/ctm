@@ -7,6 +7,7 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -24,6 +25,7 @@ public class Maker {
     public String archiveName;
     public List<Match> matches;
     public Path outputDir;
+    public Path archiveDir;
 
     public Path sourceImagePath;
     public Path borderImagePath;
@@ -64,6 +66,10 @@ public class Maker {
         }
     }
 
+    public Processor getProcessor() {
+        return processor;
+    }
+
     //////////////////////////////////////////
 
     /**
@@ -92,13 +98,15 @@ public class Maker {
         try {
 
             // load source and border images
-            logger.info("loading src and border images");
+            logger.info("loading source image from " + sourceImagePath);
             sourceImage = ImageIO.read(sourceImagePath.toFile());
+            logger.info("loading border image from " + borderImagePath);
             borderImage = ImageIO.read(borderImagePath.toFile());
 
             // load optional corner image
             if (cornerImagePath != null) {
                 if (Files.exists(cornerImagePath)) {
+                    logger.info("loading corner overlay image from " + cornerImagePath);
                     cornerImage = ImageIO.read(cornerImagePath.toFile());
                 } else logger.warn("corner overlay image does not exist. skipping");
             }
@@ -115,6 +123,14 @@ public class Maker {
     }
 
     public void export() {
+        logger.stage("export");
+
+        // check
+        if (borderSizePx <= 0) {
+            logger.err("border size is negative or zero (", borderSizePx, ")");
+            return;
+        }
+
         // prepare
         processor.prepare();
 
@@ -126,7 +142,7 @@ public class Maker {
                 // get files
                 Path outputFile = getOutputFile(i + ".png", true);
 
-                // log
+                // log info
                 logger.info("processing tile " + i + " | out: " + outputFile);
 
                 // get tile template
@@ -134,8 +150,8 @@ public class Maker {
 
                 // create result image
                 BufferedImage result = new BufferedImage(
-                        BufferedImage.TYPE_INT_ARGB,
-                        sourceImage.getWidth(), sourceImage.getHeight()
+                        sourceImage.getWidth(), sourceImage.getHeight(),
+                        BufferedImage.TYPE_INT_ARGB
                 );
 
                 // process
@@ -152,10 +168,10 @@ public class Maker {
                 // write to file
                 ImageIO.write(result, "PNG", outputFile.toFile());
 
-                // log
-                logger.ok("processed tile " + i + " | " + outputFile);
+                // log ok
+//                logger.ok("processed tile " + i + " | " + outputFile);
             } catch (Exception e) {
-                logger.err("error while processing tile " + i + ":" + e);
+                logger.err("error while processing tile " + i + ":", e);
             }
         }
 
@@ -164,11 +180,13 @@ public class Maker {
         logger.info("writing " + matches.size() + " meta files");
         try {
             for (Match match : matches) {
-                Path p = match.getFile(outputDir);
+                Path p = match.getFile(archiveDir);
                 logger.info("writing " + p + " | " + match);
                 if (!Files.exists(p))
-                    Files.createDirectory(p);
-                match.writeFile(p, IOUtil.createFilePrintWriter(p));
+                    Files.createFile(p);
+                PrintWriter writer = IOUtil.createFilePrintWriter(p);
+                match.writeFile(p, writer);
+                writer.close();
             }
         } catch (Exception e) {
             logger.err("exception while writing meta files:", e);
@@ -185,37 +203,14 @@ public class Maker {
 
         y = h / 2;
         for (x = 0; x < w / 2; x++) {
-            if (new Color(borderImage.getRGB(x, y)).getAlpha() == 0) {
+            if (new Color(borderImage.getRGB(x, y), true).getAlpha() == 0) {
                 acc += x;
                 break;
             }
         }
 
-        y = h / 2;
-        for (x = w; x > w / 2; x--) {
-            if (new Color(borderImage.getRGB(x, y)).getAlpha() == 0) {
-                acc += w - x;
-                break;
-            }
-        }
-
-        x = w / 2;
-        for (y = 0; y < h / 2; y++) {
-            if (new Color(borderImage.getRGB(x, y)).getAlpha() == 0) {
-                acc += y;
-                break;
-            }
-        }
-
-        x = w / 2;
-        for (y = h; y > h / 2; y--) {
-            if (new Color(borderImage.getRGB(x, y)).getAlpha() == 0) {
-                acc += h - y;
-                break;
-            }
-        }
-
-        return borderSizePx = Math.round(acc / 4f);
+        borderSizePx = acc;
+        return acc;
     }
 
     public Path getOutputFile(String name, boolean create) {
@@ -223,6 +218,7 @@ public class Maker {
             if (!Files.exists(outputDir))
                 Files.createDirectory(outputDir);
             Path to = outputDir.resolve(archiveName);
+            archiveDir = to;
             if (!Files.exists(to))
                 Files.createDirectory(to);
             Path f = to.resolve(name);

@@ -9,13 +9,14 @@ plugins {
 
 ext {
     mGroup   = "com.github.orbyfied.ctm"
-    mVersion = "0.1.0R0"
+    mVersion = "0.2.1R3"
 }
 
 group rootProject.mGroup
 version rootProject.mVersion
 
 dependencies {
+    implementation(project(":util"))
     implementation(project(":logging"))
     implementation(project(":argument"))
 }
@@ -34,7 +35,7 @@ static void copyf(java.nio.file.Path from, java.nio.file.Path to) {
     }
 }
 
-mainClassName = "com.github.orbyfied.com.github.orbyfied.ctm.Main"
+mainClassName = "com.github.orbyfied.ctm.Main"
 
 jar {
     manifest {

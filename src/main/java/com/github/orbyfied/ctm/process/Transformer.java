@@ -4,7 +4,7 @@ import java.awt.image.BufferedImage;
 
 public interface Transformer {
 
-    void transformFinal(
+    void transformTexFinal(
             Maker maker,
 
             BufferedImage result,

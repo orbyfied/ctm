@@ -1,9 +1,12 @@
 package com.github.orbyfied.ctm.process;
 
+import com.github.orbyfied.util.StringIterator;
+
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
 import java.text.StringCharacterIterator;
 import java.util.Arrays;
+import java.util.StringJoiner;
 
 public abstract class Template {
 
@@ -11,27 +14,26 @@ public abstract class Template {
         boolean[] borders = new boolean[4];
         boolean[] corners = new boolean[4];
 
-        StringCharacterIterator iter = new StringCharacterIterator(s);
-        iter.setIndex(-1);
+        StringIterator iter = new StringIterator(s, -1);
         char c;
-        while ((c = iter.next()) != StringCharacterIterator.DONE) {
+        while ((c = iter.next()) != StringIterator.DONE) {
             switch (c) {
                 case 'c' -> {
                     String s1 = new String(new char[] { iter.next(), iter.next() });
                     switch (s1) {
-                        case "tl": corners[0] = true;
-                        case "tr": corners[1] = true;
-                        case "br": corners[2] = true;
-                        case "bl": corners[3] = true;
+                        case "tl" -> corners[0] = true;
+                        case "tr" -> corners[1] = true;
+                        case "br" -> corners[2] = true;
+                        case "bl" -> corners[3] = true;
                     }
                 }
 
                 case 'b' -> {
                     switch (iter.next()) {
-                        case 'l': borders[0] = true;
-                        case 't': borders[1] = true;
-                        case 'r': borders[2] = true;
-                        case 'b': borders[3] = true;
+                        case 'l' -> borders[0] = true;
+                        case 't' -> borders[1] = true;
+                        case 'r' -> borders[2] = true;
+                        case 'b' -> borders[3] = true;
                     }
                 }
 
@@ -48,7 +50,9 @@ public abstract class Template {
             }
         }
 
-        return new SimpleTemplate(borders, corners);
+        SimpleTemplate t = new SimpleTemplate(borders, corners);
+//        System.out.println(s + " -> " + t);
+        return t;
     }
 
     public abstract Rectangle2D[] createBorders(boolean inlineCorners, int borderSize, int w, int h);
@@ -147,7 +151,7 @@ public abstract class Template {
             if (borders[0]) rects[0] = new Rectangle(0, 0, bs, h);
             if (borders[1]) rects[1] = new Rectangle(0, 0, w, bs);
             if (borders[2]) rects[2] = new Rectangle(w - bs, 0, bs, h);
-            if (borders[3]) rects[3] = new Rectangle(0, h - bs, bs, 0);
+            if (borders[3]) rects[3] = new Rectangle(0, h - bs, w, bs);
             return rects;
         }
 
@@ -158,13 +162,20 @@ public abstract class Template {
                 int w,
                 int h) {
             Rectangle2D[] rects = new Rectangle2D[4];
-            if (borders[0]) rects[0] = new Rectangle(0, 0, bs, bs);
-            if (borders[1]) rects[1] = new Rectangle(w - bs, 0, bs, bs);
-            if (borders[2]) rects[2] = new Rectangle(w - bs, h - bs, bs, bs);
-            if (borders[3]) rects[3] = new Rectangle(0, h - bs, bs, bs);
+            if (corners[0]) rects[0] = new Rectangle(0, 0, bs, bs);
+            if (corners[1]) rects[1] = new Rectangle(w - bs, 0, bs, bs);
+            if (corners[2]) rects[2] = new Rectangle(w - bs, h - bs, bs, bs);
+            if (corners[3]) rects[3] = new Rectangle(0, h - bs, bs, bs);
             return rects;
         }
 
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", SimpleTemplate.class.getSimpleName() + "[", "]")
+                    .add("borders=" + Arrays.toString(borders))
+                    .add("corners=" + Arrays.toString(corners))
+                    .toString();
+        }
     }
 
 }

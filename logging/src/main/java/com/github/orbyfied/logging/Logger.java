@@ -23,6 +23,8 @@ public class Logger {
     private String tag;
     private String stage;
 
+    private boolean stackTraces = false;
+
     private Consumer<StringBuilder> transformer;
 
     public Logger(String name) {
@@ -54,10 +56,11 @@ public class Logger {
         if (tag != null || stage != null) message.append("[");
         if (tag != null) message.append(tag).append(stage != null ? "/" : "");
         if (stage != null) message.append(stage);
-        if (tag != null || stage != null) message.append("[");
+        if (tag != null || stage != null) message.append("]");
+        message.append(" ");
         for (Object o : msg) {
             String s = Objects.toString(o);
-            if (o instanceof Throwable) {
+            if (o instanceof Throwable && stackTraces) {
                 Throwable t1 = (Throwable)o;
                 StringWriter writer = new StringWriter();
                 PrintWriter writer1 = new PrintWriter(writer);
@@ -68,6 +71,7 @@ public class Logger {
         }
         message.deleteCharAt(message.length() - 1);
         if (transformer != null) transformer.accept(message);
+        System.out.println(message);
         return this;
     }
 

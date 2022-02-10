@@ -7,9 +7,6 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class ArgType<U, L> {
@@ -27,7 +24,7 @@ public class ArgType<U, L> {
     /**
      * String -> Lower
      */
-    private Function<String, Object> converter;
+    private Function<String, Object> parser;
 
     /**
      * Upper, Lower & Operator
@@ -37,13 +34,13 @@ public class ArgType<U, L> {
     public ArgType(
             Class<U> upper,
             Class<L> lower,
-            Function<String, Object> converter,
+            Function<String, Object> parser,
             TriConsumer<U, Object, String> applier
     ) {
         this.upper = upper;
         this.lower = lower;
 
-        this.converter = converter;
+        this.parser = parser;
         this.applier   = applier;
     }
 
@@ -55,8 +52,8 @@ public class ArgType<U, L> {
         return lower;
     }
 
-    public Object convert(String str) {
-        return converter.apply(str);
+    public Object parse(String str) {
+        return parser.apply(str);
     }
 
     public void apply(U upper, L lower, String operator) {
@@ -73,11 +70,28 @@ public class ArgType<U, L> {
         });
     }
 
+    public static <T> ArgType<ConsumingUpper, T> mono(final Class<T> tClass, Function<String, Object> parser) {
+        return new ArgType<>(ConsumingUpper.class, tClass, parser, (upper, t, s) -> {
+            if (s.equals("=")) upper.push(t);
+        });
+    }
+
     @SuppressWarnings({"unchecked"})
     public static <T> ArgType<List, T> listing(final Class<T> tClass) {
         return new ArgType<>(List.class, tClass,
                 s -> parseValue(s, tClass),
                 (upper, t, s) -> {
+                    switch (s) {
+                        case "+=" -> upper.add(t);
+                        case "-=" -> upper.remove(t);
+                        case "="  -> upper.addAll((List)t);
+                    }
+                });
+    }
+
+    @SuppressWarnings({"unchecked"})
+    public static <T> ArgType<List, T> listing(final Class<T> tClass, Function<String, Object> parser) {
+        return new ArgType<>(List.class, tClass, parser, (upper, t, s) -> {
                     switch (s) {
                         case "+=" -> upper.add(t);
                         case "-=" -> upper.remove(t);
