@@ -2,6 +2,8 @@ package com.github.orbyfied.ctm.process;
 
 import com.github.orbyfied.util.IOUtil;
 import com.github.orbyfied.logging.Logger;
+import com.github.orbyfied.util.Images;
+import com.github.orbyfied.util.Vec2;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -32,6 +34,7 @@ public class Maker {
     public Path cornerImagePath;
     public int borderSizePx;
     public boolean testBorderSize;
+    public Vec2 rescale;
 
     public boolean useInlineCorners;
 
@@ -115,7 +118,48 @@ public class Maker {
                 } else logger.warn("corner overlay image does not exist. skipping");
             }
 
-            // TODO: check if they are the same size
+            // rescale to fit size
+            Vec2 scale = this.rescale;
+            if (scale == null)
+                scale = new Vec2(sourceImage.getWidth(), sourceImage.getHeight());
+            if (scale.x() != scale.y()) {
+                logger.err("invalid scale: not square (" + scale.x() + "x" + scale.y() + ")");
+                return;
+            }
+
+            if ( // source image if needed
+                    sourceImage.getWidth()  != scale.x() ||
+                    sourceImage.getHeight() != scale.y()) {
+                int w = sourceImage.getWidth();
+                int h = sourceImage.getHeight();
+                logger.info("rescaling source image from " + w + "x" + h + " to " + scale.x() + "x" + scale.y());
+                sourceImage = Images.imageToBufferedImage(sourceImage.getScaledInstance(scale.x(), scale.y(), Image.SCALE_SMOOTH));
+            }
+
+            if ( // border image if needed
+                    borderImage.getWidth()  != scale.x() ||
+                    borderImage.getHeight() != scale.y()) {
+                int w = borderImage.getWidth();
+                int h = borderImage.getHeight();
+                if (rescale == null)
+                    logger.warn("border image size (" + w + "x" + h + ") " +
+                            "differs from source image size (" + scale.x() + "x" + scale.y() + ")");
+                logger.info("rescaling border image from " + w + "x" + h + " to " + scale.x() + "x" + scale.y());
+                borderImage = Images.imageToBufferedImage(borderImage.getScaledInstance(scale.x(), scale.y(), Image.SCALE_SMOOTH));
+            }
+
+            if ( // corner overlay if it is used and if needed
+                    cornerImage != null &&
+                    (cornerImage.getWidth()  != scale.x() ||
+                    cornerImage.getHeight() != scale.y())) {
+                int w = cornerImage.getWidth();
+                int h = cornerImage.getHeight();
+                if (rescale == null)
+                    logger.warn("corner image size (" + w + "x" + h + ") " +
+                            "differs from source image size (" + scale.x() + "x" + scale.y() + ")");
+                logger.info("rescaling corner image from " + w + "x" + h + " to " + scale.x() + "x" + scale.y());
+                cornerImage = Images.imageToBufferedImage(cornerImage.getScaledInstance(scale.x(), scale.y(), Image.SCALE_SMOOTH));
+            }
 
             // ok
             logger.ok("successfully loaded images");
@@ -126,13 +170,19 @@ public class Maker {
 
     }
 
-    public void export() {
+    public boolean export() {
         logger.stage("export");
 
-        // check
+        // check border size
         if (borderSizePx <= 0) {
-            logger.err("border size is negative or zero (", borderSizePx, ")");
-            return;
+            logger.err("border size is negative or zero: " + borderSizePx);
+            return false;
+        }
+
+        if (borderSizePx >= sourceImage.getWidth()  / 2 ||
+                borderSizePx >= sourceImage.getHeight() / 2) {
+            logger.err("border size is larger than size/2 (" + sourceImage.getWidth()/2 + "), could cause math errors: " + borderSizePx);
+            return false;
         }
 
         // prepare
@@ -200,7 +250,10 @@ public class Maker {
             }
         } catch (Exception e) {
             logger.err("exception while writing meta files:", e);
+            return false;
         }
+
+        return true;
     }
 
     public int testBorderSize() {

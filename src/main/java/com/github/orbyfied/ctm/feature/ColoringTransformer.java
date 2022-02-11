@@ -50,9 +50,17 @@ public class ColoringTransformer implements Transformer {
                 int g = col.getGreen();
                 int b = col.getBlue();
                 double l = 0.2126*r + 0.7152*g + 0.0722*b;
-                result.setRGB(x, y, new Color((int)(rt * l/255), (int)(gt * l/255), (int)(bt * l/255)).getRGB());
+                result.setRGB(x, y, new Color(
+                        clampcc((int)(rt * l/255)),
+                        clampcc((int)(gt * l/255)),
+                        clampcc((int)(bt * l/255))
+                ).getRGB());
             }
         }
+    }
+
+    private static int clampcc(int in) {
+        return Math.max(0, Math.min(in, 255));
     }
 
 }

@@ -11,13 +11,14 @@ import com.github.orbyfied.ctm.process.Match;
 import com.github.orbyfied.ctm.process.Template;
 import com.github.orbyfied.logging.Logger;
 import com.github.orbyfied.util.StringIterator;
+import com.github.orbyfied.util.Vec2;
 
 import java.nio.file.Path;
 import java.text.StringCharacterIterator;
 
 public class Main {
 
-    public static final String VERSION = "0.2.1R3";
+    public static final String VERSION = "0.2.2R4";
 
     public static Maker maker;
 
@@ -63,7 +64,9 @@ public class Main {
                 new ArgOption("test-border", Boolean.class, true, false).withShortAliases('t'),
 
                 new ArgOption("mirror-overlays", ArgType.mono(OverlayMirroringTransformer.class, Main::parseOverlayMirroring), true, false),
-                new ArgOption("recolor", ArgType.mono(ColoringTransformer.class, Main::parseColoringTransformer), true, false)
+                new ArgOption("recolor", ArgType.mono(ColoringTransformer.class, Main::parseColoringTransformer), true, false),
+
+                new ArgOption("rescale", ArgType.mono(Vec2.class, Main::parseVec2), true, false)
         ).withWarningHandler(w -> logger.warn(w)));
 
         // initialize properties
@@ -78,6 +81,8 @@ public class Main {
         maker.cornerImagePath  = args.get("corner-overlay");
         maker.useInlineCorners = args.get("inline-corners");
         maker.testBorderSize   = args.get("test-border");
+
+        maker.rescale = args.get("rescale");
 
         // add transformers
         ChainedTransformer transformer = maker.getProcessor().transformer(new ChainedTransformer());
@@ -96,8 +101,9 @@ public class Main {
             if (maker.testBorderSize)
                 maker.testBorderSize();
             logger.info("exporting " + Template.ALL_TILES_COUNT + " tile(s) and " + maker.matches.size() + " match(es)");
-            maker.export();
-            logger.stage("export").ok("successfully exported in " + getTimeElapsed(t1));
+            boolean b = maker.export();
+            if (b) logger.stage("export").ok("successfully exported in " + getTimeElapsed(t1));
+            else logger.stage("export").err("failed to export; error logged above (elapsed: " + getTimeElapsed(t1) + ")");
         } catch (Exception e) {
             logger.err("error while exporting (elapsed: " + getTimeElapsed(t1) + "):", e);
             e.printStackTrace();
@@ -112,7 +118,7 @@ public class Main {
 
     //////////////////////////////////////////////////
 
-    /** Match parser for the arguments. */
+    /** For parsing matches from the command line. */
     private static Object parseMatch(String s) {
         String[] split = s.split(":");
         if (split.length < 2)
@@ -122,7 +128,7 @@ public class Main {
         return new Match(null).withProperties(matches, tileName);
     }
 
-    /** Mirroring parser for the arguments. */
+    /** For parsing mirroring transformer from the command line. */
     private static OverlayMirroringTransformer parseOverlayMirroring(String s) {
         OverlayMirroringTransformer t = new OverlayMirroringTransformer();
         StringIterator iter = new StringIterator(s, -1);
@@ -160,7 +166,24 @@ public class Main {
         int r = Integer.parseInt(hex.substring(0, 2), 16);
         int g = Integer.parseInt(hex.substring(2, 4), 16);
         int b = Integer.parseInt(hex.substring(4, 6), 16);
+        if (split.length == 3) {
+            String[] split1 = split[2].split(",");
+            if (split1.length != 3)
+                throw new IllegalArgumentException("invalid channel multiplier setting (expected 'r,g,b'): " + split[2]);
+            r *= Float.parseFloat(split1[0]);
+            g *= Float.parseFloat(split1[1]);
+            b *= Float.parseFloat(split1[2]);
+        }
         return new ColoringTransformer(dosource, doborder, docorners, r, g, b);
+    }
+
+    /** For parsing Vec2s from the command line. */
+    private static Vec2 parseVec2(String s) {
+        s = s.substring(s.startsWith("(") ? 1 : 0, s.endsWith(")") ? s.length() - 1 : s.length());
+        String[] split = s.split(",");
+        if (split.length < 2)
+            throw new IllegalArgumentException("invalid vec2i (expected '(<x>,<y>)'): " + s);
+        return new Vec2(Integer.parseInt(split[0]), Integer.parseInt(split[1]));
     }
 
     /**
@@ -178,7 +201,8 @@ public class Main {
                 "[--output-dir=...] " +
                 "<--matches+=<name>:<match>> " +
                 "[--corner-overlay=...] " +
-                "[--test-border]");
+                "[--test-border] " +
+                "[--rescale=(w,h)]");
         println();
     }
 
