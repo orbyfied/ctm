@@ -1,5 +1,7 @@
 package com.github.orbyfied.argument;
 
+import java.util.StringJoiner;
+
 public class Raw {
 
     private String str;
@@ -16,4 +18,8 @@ public class Raw {
         this.str = str;
     }
 
+    @Override
+    public String toString() {
+        return str;
+    }
 }

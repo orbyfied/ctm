@@ -1,36 +1,47 @@
 package com.github.orbyfied.argument;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
 @SuppressWarnings("unchecked")
 public class Args {
 
-    private Map<String, Object> result = new HashMap<>();
+    private ArgContext context;
+
+    public Args() {
+        this(new ArgContext());
+    }
+
+    public Args(ArgContext context) {
+        Objects.requireNonNull(context, "context cannot be null");
+        this.context = context;
+        StdContext.apply(context);
+    }
 
     public Args parse(String s, Consumer<ArgParser> consumer) {
         ArgParser parser = new ArgParser();
-        consumer.accept(parser);
-        parser.parse(s, result);
+        if (consumer != null)
+            consumer.accept(parser);
+        parser.parse(s, context);
         return this;
     }
 
     public Map<String, Object> getResult() {
-        return result;
+        return context.getSymbols();
     }
 
     public <T> T get(String key) {
-        return (T)result.get(key);
+        return context.getSymbolValue(key);
     }
 
     public <T> T get(String key, Class<T> tClass) {
-        return (T)result.get(key);
+        return (T)context.getSymbolValue(key);
     }
 
     public <T> Optional<T> getOptional(String key) {
-        return Optional.of((T)result.get(key));
+        return Optional.of((T)context.getSymbolValue(key));
     }
 
 }

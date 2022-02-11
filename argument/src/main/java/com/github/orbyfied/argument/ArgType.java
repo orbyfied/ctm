@@ -123,7 +123,8 @@ public class ArgType<U, L> {
     }
 
     private static Object parseValueAn(String s) {
-        if (s.startsWith("\"")) {
+        if (s.length() == 0) return null;
+        if (s.startsWith("\"") || s.startsWith("'")) {
             return s.substring(1, s.length() - 1);
         } else if (isDigit(s.charAt(0))) {
             StringIterator iter = new StringIterator(s, -1);
@@ -136,7 +137,12 @@ public class ArgType<U, L> {
                 if (!isDigit(c)) break;
                 b.append(c);
             }
-            return hasDecimals ? Double.parseDouble(b.toString()) : Long.parseLong(b.toString());
+            Object o;
+            if (hasDecimals)
+                o = Double.parseDouble(b.toString());
+            else
+                o = Long.parseLong(b.toString());
+            return o;
         } else return new Raw(s);
     }
 

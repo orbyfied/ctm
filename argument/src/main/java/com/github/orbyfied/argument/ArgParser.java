@@ -76,9 +76,14 @@ public class ArgParser {
             warningHandler.accept(s);
     }
 
-    @SuppressWarnings("unchecked")
     public ArgParser parse(String str, Map<String, Object> res) {
-        // construct consuming upper
+        return parse(str, new ArgContext(res));
+    }
+
+    @SuppressWarnings("unchecked")
+    public ArgParser parse(String str, ArgContext context) {
+        // construct context elements
+        Map<String, Object> res = context.getSymbols();
         ConsumingUpper consumingUpper = new ConsumingUpper(res);
 
         // set values and create iterator
@@ -119,21 +124,16 @@ public class ArgParser {
                     // collect operator
                     String operator = collectOperator();
 
-                    // collect value as string
-                    String valstr = collectOptValueStr(res);
-
                     // get type and value
                     ArgType<?, ?> type = option.getType();
                     Object val;
-
-                    // check for variable
                     boolean isVar = false;
-                    if (valstr.startsWith("$")) {
-                        if (!res.containsKey(valstr))
-                            warnf("Unresolved variable: " + valstr + " (in --" + arg + ")");
-                        val = res.get(valstr);
+                    if (iter.current() == '$') {
+                        val = getOrInvokeSymbol(context);
                         isVar = true;
-                    } else val = type.parse(valstr);
+                    } else {
+                        val = type.parse(collectOptValueStr(context));
+                    }
 
                         // parse raw string if it is one
                     if (val instanceof Raw)
@@ -163,17 +163,15 @@ public class ArgParser {
                 // check operator
                 if (iter.current() != '=')
                     erriag("Syntax error: expected = after variable assignment", i1, iter.index());
+                iter.next();
 
                 // collect and parse value
-                iter.next();
-                String valstr = '"' + collectOptValueStr(res) + '"';
                 Object val;
-
-                if (valstr.startsWith("$")) {
-                    if (!res.containsKey(valstr))
-                        warnf("Unresolved variable: " + valstr + " (in $" + name + "=)");
-                    val = res.get(valstr);
-                } else val = ArgType.GENERAL.parse(valstr);
+                if (iter.current() == '$') {
+                    val = getOrInvokeSymbol(context);
+                } else {
+                    val = ArgType.GENERAL.parse(collectOptValueStr(context));
+                }
 
                 // set
                 res.put("$" + name, val);
@@ -188,19 +186,15 @@ public class ArgParser {
                 // get option
                 ArgOption option = unnamedArgs.get(argindex);
 
-                // collect and parse value
-                String valstr = collectOptValueStr(res);
-
                 ArgType<?, ?> type = option.getType();
                 Object val;
-
                 boolean isVar = false;
-                if (valstr.startsWith("$")) {
-                    if (!res.containsKey(valstr))
-                        warnf("Unresolved variable: " + valstr + " (in unnamed " + argindex + ")");
-                    val = res.get(valstr);
+                if (iter.current() == '$') {
+                    val = getOrInvokeSymbol(context);
                     isVar = true;
-                } else val = type.parse(valstr);
+                } else {
+                    val = type.parse(collectOptValueStr(context));
+                }
 
                 if (val instanceof Raw)
                     val = type.parse(((Raw)val).getString());
@@ -238,30 +232,89 @@ public class ArgParser {
         }
     }
 
+    private Object getOrInvokeSymbol(ArgContext context) {
+        Map<String, Object> sym = context.getSymbols();
+        if (iter.next() != '{')
+            erriag("Syntax error: expected { to ref variable", iter.index(), iter.index());
+        int i1 = iter.index();
+        StringBuilder nameb = new StringBuilder();
+        char c;
+        boolean call = false;
+        List<Object> arguments = null;
+        while ((c = iter.next()) != StringIterator.DONE) {
+            if (c == ' ') continue;
+            if (c == '}') break;
+            if (c == '(') {
+                call = true;
+                arguments = new ArrayList<>(2);
+                StringBuilder lastArg = null;
+                iter.prev();
+                while ((c = iter.next()) != StringIterator.DONE) {
+//                    System.out.println(c);
+                    if (c == ' ') continue;
+                    if (c == '(' || c == ',') {
+                        if (lastArg != null)
+                            arguments.add(ArgType.GENERAL.parse(lastArg.toString()));
+                        lastArg = new StringBuilder();
+                        while ((c = iter.next()) != StringIterator.DONE) {
+                            if (c == '$') {
+                                arguments.add(getOrInvokeSymbol(context));
+                                iter.next();
+                                continue;
+                            }
+                            if (c != ' ')
+                                break;
+                        }
+                    }
+                    if (c == ',' || c == ')') {
+                        String las = lastArg.toString();
+                        Object val;
+                        val = ArgType.GENERAL.parse(las);
+                        arguments.add(val);
+                        lastArg = new StringBuilder();
+                        if (c == ')') break;
+                        continue;
+                    }
+                    lastArg.append(c);
+                }
+                continue;
+            }
+            nameb.append(c);
+        }
+        String name = nameb.toString();
+        String fn = "$" + name;
+        if (!sym.containsKey(fn))
+            warnf("Unresolved variable: " + fn);
+        if (!call)
+            return sym.get(fn);
+        else {
+            Object v = sym.get(fn);
+            if (!(v instanceof ArgFunction))
+                erriag("attempt to call non-function " + fn, i1, iter.index());
+            return ((ArgFunction)v).invoke(context, arguments.toArray());
+        }
+    }
+
     private String collectOperator() {
         return iter.collect(ArgParser::isValidOperatorChar);
     }
 
-    private String collectOptValueStr(Map<String, Object> res) {
+    private String collectOptValueStr(ArgContext ctx) {
         if (iter.current() == '$') {
-            if (iter.next() != '{')
-                erriag("Syntax error: expected { to ref variable", iter.index(), iter.index());
-            iter.next();
-            String name = iter.collect(c -> c != '}');
-            return "$" + name;
+            return Objects.toString(getOrInvokeSymbol(ctx));
         }
-        if (iter.current() == '"' || iter.current() == '\'') return collectStr(iter.current(), res);
-        return collectComplex(' ', res);
+        if (iter.current() == '"' || iter.current() == '\'') return collectStr(iter.current(), ctx);
+        return collectComplex(' ', ctx);
     }
 
-    private String collectStr(char startChar, Map<String, Object> res) {
+    private String collectStr(char startChar, ArgContext ctx) {
         iter.next();
-        String s = collectComplex(startChar, res);
+        String s = collectComplex(startChar, ctx);
         iter.next();
         return s;
     }
 
-    private String collectComplex(char matchChar, Map<String, Object> res) {
+    private String collectComplex(char matchChar, ArgContext ctx) {
         StringBuilder b = new StringBuilder();
         iter.prev();
         char c;
@@ -270,14 +323,10 @@ public class ArgParser {
             if (c == '\\') {
                 b.append(iter.next());
             } else if (c == '$') {
-                if (iter.next() != '{')
-                    erriag("Syntax error: expected { to ref variable", iter.index(), iter.index());
-                iter.next();
-                String name = iter.collect(c1 -> c1 != '}');
-                String fn = "$" + name;
-                if (!res.containsKey(fn))
-                    warnf("Unresolved variable: " + fn);
-                b.append(res.get(fn));
+                Object o = getOrInvokeSymbol(ctx);
+                if (o instanceof Raw)
+                    b.append(((Raw)o).getString());
+                else b.append(o);
             } else {
                 b.append(c);
             }
