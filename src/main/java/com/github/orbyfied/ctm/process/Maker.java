@@ -10,8 +10,10 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 public class Maker {
@@ -35,6 +37,7 @@ public class Maker {
     public int borderSizePx;
     public boolean testBorderSize;
     public Vec2 rescale;
+    public boolean makeBlockFile;
 
     public boolean useInlineCorners;
 
@@ -235,18 +238,22 @@ public class Maker {
         }
 
         // write meta files
-        logger.stage("export-meta");
-        logger.info("writing " + matches.size() + " meta files");
+        logger.stage("export-matches");
+        logger.info("exporting " + matches.size() + " matches");
         try {
             for (Match match : matches) {
                 Path p = match.getFile(archiveDir);
-                logger.info("writing " + p + " | " + match);
+                logger.info("writing " + p + (makeBlockFile ? ", exporting block texture: " + match.tileName + ".png" : "") + " | " + match);
                 if (Files.exists(p))
                     Files.delete(p);
                 Files.createFile(p);
                 PrintWriter writer = IOUtil.createFilePrintWriter(p);
                 match.writeFile(p, writer);
                 writer.close();
+                if (makeBlockFile) {
+                    Path p1 = getOutputFile(match.tileName + ".png");
+                    Files.copy(getOutputFile("0.png"), p1, StandardCopyOption.REPLACE_EXISTING);
+                }
             }
         } catch (Exception e) {
             logger.err("exception while writing meta files:", e);

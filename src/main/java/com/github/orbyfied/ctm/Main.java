@@ -18,7 +18,7 @@ import java.text.StringCharacterIterator;
 
 public class Main {
 
-    public static final String VERSION = "0.2.2R4";
+    public static final String VERSION = "0.2.2R5";
 
     public static Maker maker;
 
@@ -62,6 +62,7 @@ public class Main {
                 new ArgOption("corner-overlay",   Path.class,  true, false),
                 new ArgOption("inline-corners", Boolean.class, true, false).withShortAliases('i'),
                 new ArgOption("test-border", Boolean.class, true, false).withShortAliases('t'),
+                new ArgOption("block-texture", Boolean.class, true, false).withDefault(true),
 
                 new ArgOption("mirror-overlays", ArgType.mono(OverlayMirroringTransformer.class, Main::parseOverlayMirroring), true, false),
                 new ArgOption("recolor", ArgType.mono(ColoringTransformer.class, Main::parseColoringTransformer), true, false),
@@ -81,6 +82,7 @@ public class Main {
         maker.cornerImagePath  = args.get("corner-overlay");
         maker.useInlineCorners = args.get("inline-corners");
         maker.testBorderSize   = args.get("test-border");
+        maker.makeBlockFile    = args.get("block-texture");
 
         maker.rescale = args.get("rescale");
 
