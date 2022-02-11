@@ -8,6 +8,8 @@ import com.github.orbyfied.ctm.feature.OverlayMirroringTransformer;
 import com.github.orbyfied.ctm.process.ChainedTransformer;
 import com.github.orbyfied.ctm.process.Maker;
 import com.github.orbyfied.ctm.process.Match;
+import com.github.orbyfied.ctm.process.Template;
+import com.github.orbyfied.logging.Logger;
 import com.github.orbyfied.util.StringIterator;
 
 import java.nio.file.Path;
@@ -15,9 +17,13 @@ import java.text.StringCharacterIterator;
 
 public class Main {
 
+    public static final String VERSION = "0.2.1R3";
+
     public static Maker maker;
 
     public static void main(String[] args1) {
+
+        long t1;
 
         // construct arguments
         StringBuilder argsf = new StringBuilder();
@@ -29,9 +35,14 @@ public class Main {
 
         // construct maker
         maker = new Maker("CTM");
+        Logger logger = maker.logger;
+        logger.info("-> ctm " + VERSION + " by orbyfied (https://github.com/orbyfied/ctm)");
 
         // parse arguments
-        maker.logger.stage("parse-args");
+        t1 = System.nanoTime();
+
+        logger.stage("parse-args");
+        logger.info("parsing command line");
         Args args = new Args();
         args.parse(str, parser -> parser.withOptions(
                 new ArgOption("source-image", Path.class,  false, true),
@@ -48,7 +59,7 @@ public class Main {
 
                 new ArgOption("mirror-overlays", ArgType.mono(OverlayMirroringTransformer.class, Main::parseOverlayMirroring), true, false),
                 new ArgOption("recolor", ArgType.mono(ColoringTransformer.class, Main::parseColoringTransformer), true, false)
-        ).withWarningHandler(w -> maker.logger.warn(w)));
+        ).withWarningHandler(w -> logger.warn(w)));
 
         // initialize properties
         maker.outputDir = args.get("output-dir");
@@ -68,13 +79,30 @@ public class Main {
         transformer.addTransformer(args.get("mirror-overlays"));
         transformer.addTransformer(args.get("recolor"));
 
-        // export
-        maker.prepareExport();
-        maker.loadImages();
-        if (maker.testBorderSize)
-            maker.testBorderSize();
-        maker.export();
+        // log done parsing
+        logger.ok("parsed command line in " + getTimeElapsed(t1));
 
+        // export
+        t1 = System.nanoTime();
+        maker.prepareExport();
+        logger.info("preparing for export");
+        try {
+            maker.loadImages();
+            if (maker.testBorderSize)
+                maker.testBorderSize();
+            logger.info("exporting " + Template.ALL_TILES_COUNT + " tile(s) and " + maker.matches.size() + " match(es)");
+            maker.export();
+            logger.stage("export").info("successfully exported in " + getTimeElapsed(t1));
+        } catch (Exception e) {
+            logger.err("error while exporting (elapsed: " + getTimeElapsed(t1) + "):", e);
+            e.printStackTrace();
+        }
+
+    }
+
+    private static String getTimeElapsed(long nanos) {
+        long res = System.nanoTime() - nanos;
+        return res + "ns (" + res / 1_000_000 + "ms)";
     }
 
     //////////////////////////////////////////////////
