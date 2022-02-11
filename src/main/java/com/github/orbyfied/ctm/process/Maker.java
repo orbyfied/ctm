@@ -140,7 +140,12 @@ public class Maker {
 
             try {
                 // get files
-                Path outputFile = getOutputFile(i + ".png", true);
+                Path outputFile = getOutputFile(i + ".png");
+
+                // delete if it exists already
+                if (Files.exists(outputFile))
+                    Files.delete(outputFile);
+                Files.createFile(outputFile);
 
                 // log info
                 logger.info("processing tile " + i + " | out: " + outputFile);
@@ -182,8 +187,9 @@ public class Maker {
             for (Match match : matches) {
                 Path p = match.getFile(archiveDir);
                 logger.info("writing " + p + " | " + match);
-                if (!Files.exists(p))
-                    Files.createFile(p);
+                if (Files.exists(p))
+                    Files.delete(p);
+                Files.createFile(p);
                 PrintWriter writer = IOUtil.createFilePrintWriter(p);
                 match.writeFile(p, writer);
                 writer.close();
@@ -210,10 +216,11 @@ public class Maker {
         }
 
         borderSizePx = acc;
+        logger.ok("tested border size:", borderSizePx + "px");
         return acc;
     }
 
-    public Path getOutputFile(String name, boolean create) {
+    public Path getOutputFile(String name) {
         try {
             if (!Files.exists(outputDir))
                 Files.createDirectory(outputDir);
@@ -222,8 +229,6 @@ public class Maker {
             if (!Files.exists(to))
                 Files.createDirectory(to);
             Path f = to.resolve(name);
-            if (create && !Files.exists(f))
-                Files.createFile(f);
             return f;
         } catch (IOException e) { e.printStackTrace(); return null; }
     }

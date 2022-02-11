@@ -3,6 +3,7 @@ package com.github.orbyfied.ctm;
 import com.github.orbyfied.argument.ArgOption;
 import com.github.orbyfied.argument.ArgType;
 import com.github.orbyfied.argument.Args;
+import com.github.orbyfied.ctm.feature.ColoringTransformer;
 import com.github.orbyfied.ctm.feature.OverlayMirroringTransformer;
 import com.github.orbyfied.ctm.process.ChainedTransformer;
 import com.github.orbyfied.ctm.process.Maker;
@@ -37,10 +38,12 @@ public class Main {
                 new ArgOption("output-dir", Path.class, true, false),
                 new ArgOption("matches", ArgType.listing(Match.class, Main::parseMatch), true, true),
 
-                new ArgOption("corner-image",   Path.class,  true, false),
+                new ArgOption("corner-overlay",   Path.class,  true, false),
                 new ArgOption("inline-corners", Boolean.class, true, false).withShortAliases('i'),
                 new ArgOption("test-border", Boolean.class, true, false).withShortAliases('t'),
-                new ArgOption("mirror-overlays", ArgType.mono(OverlayMirroringTransformer.class, Main::parseOverlayMirroring), true, false)
+
+                new ArgOption("mirror-overlays", ArgType.mono(OverlayMirroringTransformer.class, Main::parseOverlayMirroring), true, false),
+                new ArgOption("recolor", ArgType.mono(ColoringTransformer.class, Main::parseColoringTransformer), true, false)
         ));
 
         // construct maker and export
@@ -54,13 +57,14 @@ public class Main {
         maker.borderImagePath = args.get("border-image");
         maker.borderSizePx = args.get("border-size");
 
-        maker.cornerImagePath  = args.get("corner-image");
+        maker.cornerImagePath  = args.get("corner-overlay");
         maker.useInlineCorners = args.get("inline-corners");
         maker.testBorderSize   = args.get("test-border");
 
         // add transformers
         ChainedTransformer transformer = maker.getProcessor().transformer(new ChainedTransformer());
         transformer.addTransformer(args.get("mirror-overlays"));
+        transformer.addTransformer(args.get("recolor"));
 
         // export
         maker.loadImages();
@@ -97,6 +101,30 @@ public class Main {
             }
         }
         return t;
+    }
+
+    /** For parsing coloring transformer from arguments. */
+    private static ColoringTransformer parseColoringTransformer(String s) {
+        String[] split = s.split(":");
+        if (split.length < 2 || split[1].length() < 6)
+            throw new IllegalArgumentException("invalid recolor code: " + s);
+        boolean docorners = false;
+        boolean dosource = false;
+        boolean doborder = false;
+        StringIterator iter = new StringIterator(s, -1);
+        char c;
+        while ((c = iter.next()) != StringIterator.DONE) {
+            switch (c) {
+                case 's' -> dosource = true;
+                case 'b' -> doborder = true;
+                case 'c' -> docorners = true;
+            }
+        }
+        String hex = split[1];
+        int r = Integer.parseInt(hex.substring(0, 2), 16);
+        int g = Integer.parseInt(hex.substring(2, 4), 16);
+        int b = Integer.parseInt(hex.substring(4, 6), 16);
+        return new ColoringTransformer(dosource, doborder, docorners, r, g, b);
     }
 
 }

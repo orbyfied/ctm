@@ -100,7 +100,16 @@ public class ArgType<U, L> {
                 });
     }
 
+    public static final ArgType<ConsumingUpper, Object> GENERAL = new ArgType<ConsumingUpper, Object>(
+            ConsumingUpper.class, Object.class, ArgType::parseValueAn,
+                (upper1, o, s) -> upper1.push(o)
+    );
+
     /////////////////////////////////////////
+
+    private static Object parseValueAn(String s) {
+        return s;
+    }
 
     private static Object parseValue(String s, Class<?> klass) {
         if (s.startsWith("[")) return parseList(s, klass);

@@ -95,17 +95,39 @@ public class ArgParser {
                     String valstr = collectOptValueStr();
 
                     ArgType<?, ?> type = option.getType();
-                    Object val = type.parse(valstr);
+                    Object val;
+
+                    boolean isVar = false;
+                    if (valstr.startsWith("$")) {
+                        val = res.get(valstr);
+                        isVar = true;
+                    } else val = type.parse(valstr);
+                    if (isVar)
+                        res.put(option.getName(), val);
                     if (type.getUpper() == ConsumingUpper.class)
-                        ((ArgType<ConsumingUpper, Object>)type).apply(consumingUpper.re(arg), val, operator);
+                        ((ArgType<ConsumingUpper, Object>) type).apply(consumingUpper.re(arg), val, operator);
                     else if (type.getUpper() == List.class) {
-                        List list = (List)res.get(arg);
-                        if (list == null) list = (List)res.computeIfAbsent(arg, arg1 -> new ArrayList<>());
-                        ((ArgType<List, Object>)type).apply(list, val, operator);
+                        List list = (List) res.get(arg);
+                        if (list == null) list = (List) res.computeIfAbsent(arg, arg1 -> new ArrayList<>());
+                        ((ArgType<List, Object>) type).apply(list, val, operator);
                     }
                 } else { // is short argument(s)
                     parseShortArgs(res);
                 }
+            } else if (c == '$') {
+                iter.next();
+                String name = collectLongArg();
+                if (iter.current() != '=')
+                    erriag("Syntax error: expected = after variable assignment", i1, iter.index());
+                iter.next();
+                String valstr = collectOptValueStr();
+                Object val;
+
+                if (valstr.startsWith("$")) {
+                    val = res.get(valstr);
+                } else val = ArgType.GENERAL.parse(valstr);
+
+                res.put("$" + name, val);
             } else {
                 if (c == ' ' || c == '\n' || c == '\t') continue;
                 if (argindex >= unnamedArgs.size())
@@ -114,7 +136,12 @@ public class ArgParser {
                 String valstr = collectOptValueStr();
 
                 ArgType<?, ?> type = option.getType();
-                Object val = type.parse(valstr);
+                Object val;
+
+                if (valstr.startsWith("$")) {
+                    val = res.get(valstr);
+                } else val = type.parse(valstr);
+
                 if (type.getUpper() == ConsumingUpper.class)
                     ((ArgType<ConsumingUpper, Object>)type).apply(consumingUpper.re(option.getName()), val, "=");
 
@@ -126,7 +153,7 @@ public class ArgParser {
     }
 
     private void check(Map<String, Object> map) {
-//        /* DEBUG */ System.out.println("final: " + map);
+        /* DEBUG */ System.out.println("final: " + map);
         for (ArgOption option : args) {
             String n = option.getName();
             boolean has = map.containsKey(n);
@@ -146,6 +173,13 @@ public class ArgParser {
     }
 
     private String collectOptValueStr() {
+        if (iter.peek(-1) == '$') {
+            if (iter.current() != '{')
+                erriag("Syntax error: expected { to ref variable", iter.index(), iter.index());
+            iter.next();
+            String name = iter.collect(c -> c != '}');
+            return "$" + name;
+        }
         if (iter.current() == '"' || iter.current() == '\'') return collectStr(iter.current());
         return collectSpaceTermStr();
     }

@@ -75,7 +75,7 @@ public class OverlayMirroringTransformer implements Transformer {
         if (mv) {
             for (int y = 0; y < h; y++) {
                 for (int x = 0; x < w / 2; x++) {
-                    int rx = w - x;
+                    int rx = w - x - 1;
                     int c  = image.getRGB(x, y);
                     copy.setRGB(x,  y, c);
                     copy.setRGB(rx, y, c);
@@ -85,7 +85,7 @@ public class OverlayMirroringTransformer implements Transformer {
         if (mh) {
             for (int x = 0; x < w; x++) {
                 for (int y = 0; y < w / 2; y++) {
-                    int ry = h - y;
+                    int ry = h - y - 1;
                     int c  = copy.getRGB(x, y);
                     copy.setRGB(x,  y, c);
                     copy.setRGB(x, ry, c);
