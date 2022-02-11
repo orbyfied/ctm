@@ -4,6 +4,7 @@ import com.github.orbyfied.util.StringIterator;
 
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 public class ArgParser {
 
@@ -14,6 +15,7 @@ public class ArgParser {
     private final Map<Character, ArgOption> shortArgToOption = new HashMap<>();
     private final List<ArgOption> unnamedArgs = new ArrayList<>();
 
+    private Consumer<String> warningHandler;
     private BiFunction<Class<?>, String, Object> valParser;
 
     public ArgParser withValueParser(BiFunction<Class<?>, String, Object> f) {
@@ -36,6 +38,11 @@ public class ArgParser {
         } else {
             unnamedArgs.add(option);
         }
+        return this;
+    }
+
+    public ArgParser withWarningHandler(Consumer<String> consumer) {
+        this.warningHandler = consumer;
         return this;
     }
 
@@ -64,46 +71,80 @@ public class ArgParser {
         }
     }
 
+    private void warnf(String s) {
+        if (warningHandler != null)
+            warningHandler.accept(s);
+    }
+
     @SuppressWarnings("unchecked")
     public ArgParser parse(String str, Map<String, Object> res) {
+        // construct consuming upper
         ConsumingUpper consumingUpper = new ConsumingUpper(res);
+
+        // set values and create iterator
         this.str = str;
         argindex = 0;
         iter = new StringIterator(str, -1);
+
+        // iterate
         char c;
         while ((c = iter.next()) != StringIterator.DONE) {
 //            /* DEBUG */ System.out.println("C: " + c + ", cur: " + res);
+            // get start index for error debugging
             int i1 = iter.index();
             if (c == '-') { // is named argument
                 if (iter.peek(1) == '-') { // is long argument
+                    // collect and get option
                     iter.next(2);
                     String arg = collectLongArg();
                     ArgOption option = longArgToOption.get(arg);
+
+                    // check if the option exists
                     if (option == null)
                         erriag("Unresolved option: " + arg + " does not exist as a long option", i1, iter.index());
+
+                    // check if it even has an operator
                     if (iter.current() == ' ') {
+                        // if it is a switch, turn it on
                         if (option.getType().getLower() == Boolean.class) {
                             res.put(option.getName(), true);
                             continue;
                         } else {
+                            // throw exception
                             erriag("Syntax error: missing operator after specification of " +
                                     option.getName(), i1, iter.index());
                         }
                     }
 
+                    // collect operator
                     String operator = collectOperator();
-                    String valstr = collectOptValueStr();
 
+                    // collect value as string
+                    String valstr = collectOptValueStr(res);
+
+                    // get type and value
                     ArgType<?, ?> type = option.getType();
                     Object val;
 
+                    // check for variable
                     boolean isVar = false;
                     if (valstr.startsWith("$")) {
+                        if (!res.containsKey(valstr))
+                            warnf("Unresolved variable: " + valstr + " (in --" + arg + ")");
                         val = res.get(valstr);
                         isVar = true;
                     } else val = type.parse(valstr);
-                    if (isVar)
-                        res.put(option.getName(), val);
+
+                        // parse raw string if it is one
+                    if (val instanceof Raw)
+                        val = type.parse(((Raw)val).getString());
+                    else if (isVar)
+                        // parse string if it is a different type
+                        // basically casting it
+                        if (!type.accepts(val.getClass()))
+                            val = type.parse(Objects.toString(val));
+
+                    // apply
                     if (type.getUpper() == ConsumingUpper.class)
                         ((ArgType<ConsumingUpper, Object>) type).apply(consumingUpper.re(arg), val, operator);
                     else if (type.getUpper() == List.class) {
@@ -114,37 +155,66 @@ public class ArgParser {
                 } else { // is short argument(s)
                     parseShortArgs(res);
                 }
-            } else if (c == '$') {
+            } else if (c == '$') { // is variable declaration
+                // collect variable name
                 iter.next();
                 String name = collectLongArg();
+
+                // check operator
                 if (iter.current() != '=')
                     erriag("Syntax error: expected = after variable assignment", i1, iter.index());
+
+                // collect and parse value
                 iter.next();
-                String valstr = collectOptValueStr();
+                String valstr = '"' + collectOptValueStr(res) + '"';
                 Object val;
 
                 if (valstr.startsWith("$")) {
+                    if (!res.containsKey(valstr))
+                        warnf("Unresolved variable: " + valstr + " (in $" + name + "=)");
                     val = res.get(valstr);
                 } else val = ArgType.GENERAL.parse(valstr);
 
+                // set
                 res.put("$" + name, val);
-            } else {
+            } else { // is unnamed
+                // check if it is not whitespace
                 if (c == ' ' || c == '\n' || c == '\t') continue;
+
+                // check if another unnamed argument exists
                 if (argindex >= unnamedArgs.size())
                     erriag("Unresolved option: (unnamed) index " + argindex, i1, iter.index());
+
+                // get option
                 ArgOption option = unnamedArgs.get(argindex);
-                String valstr = collectOptValueStr();
+
+                // collect and parse value
+                String valstr = collectOptValueStr(res);
 
                 ArgType<?, ?> type = option.getType();
                 Object val;
 
+                boolean isVar = false;
                 if (valstr.startsWith("$")) {
+                    if (!res.containsKey(valstr))
+                        warnf("Unresolved variable: " + valstr + " (in unnamed " + argindex + ")");
                     val = res.get(valstr);
+                    isVar = true;
                 } else val = type.parse(valstr);
 
+                if (val instanceof Raw)
+                    val = type.parse(((Raw)val).getString());
+                else if (isVar)
+                    // parse string if it is a different type
+                    // basically casting it
+                    if (!type.accepts(val.getClass()))
+                        val = type.parse(Objects.toString(val));
+
+                // apply
                 if (type.getUpper() == ConsumingUpper.class)
                     ((ArgType<ConsumingUpper, Object>)type).apply(consumingUpper.re(option.getName()), val, "=");
 
+                // advance unnamed index
                 argindex++;
             }
         }
@@ -153,7 +223,7 @@ public class ArgParser {
     }
 
     private void check(Map<String, Object> map) {
-        /* DEBUG */ System.out.println("final: " + map);
+//        /* DEBUG */ System.out.println("final: " + map);
         for (ArgOption option : args) {
             String n = option.getName();
             boolean has = map.containsKey(n);
@@ -172,27 +242,47 @@ public class ArgParser {
         return iter.collect(ArgParser::isValidOperatorChar);
     }
 
-    private String collectOptValueStr() {
-        if (iter.peek(-1) == '$') {
-            if (iter.current() != '{')
+    private String collectOptValueStr(Map<String, Object> res) {
+        if (iter.current() == '$') {
+            if (iter.next() != '{')
                 erriag("Syntax error: expected { to ref variable", iter.index(), iter.index());
             iter.next();
             String name = iter.collect(c -> c != '}');
             return "$" + name;
         }
-        if (iter.current() == '"' || iter.current() == '\'') return collectStr(iter.current());
-        return collectSpaceTermStr();
+        if (iter.current() == '"' || iter.current() == '\'') return collectStr(iter.current(), res);
+        return collectComplex(' ', res);
     }
 
-    private String collectStr(char startChar) {
+    private String collectStr(char startChar, Map<String, Object> res) {
         iter.next();
-        String s = iter.collect(c -> c != startChar);
+        String s = collectComplex(startChar, res);
         iter.next();
         return s;
     }
 
-    private String collectSpaceTermStr() {
-        return iter.collect(c -> c != ' ');
+    private String collectComplex(char matchChar, Map<String, Object> res) {
+        StringBuilder b = new StringBuilder();
+        iter.prev();
+        char c;
+        while ((c = iter.next()) != StringIterator.DONE) {
+            if (c == matchChar) break;
+            if (c == '\\') {
+                b.append(iter.next());
+            } else if (c == '$') {
+                if (iter.next() != '{')
+                    erriag("Syntax error: expected { to ref variable", iter.index(), iter.index());
+                iter.next();
+                String name = iter.collect(c1 -> c1 != '}');
+                String fn = "$" + name;
+                if (!res.containsKey(fn))
+                    warnf("Unresolved variable: " + fn);
+                b.append(res.get(fn));
+            } else {
+                b.append(c);
+            }
+        }
+        return b.toString();
     }
 
     private void parseShortArgs(Map<String, Object> map) {
@@ -231,7 +321,7 @@ public class ArgParser {
     }
 
     private static boolean isValidOperatorChar(char c) {
-        return ((c >= 33 && c <= 47) || (c >= 58 && c <= 63)) && (c != '"' && c != '\'');
+        return ((c >= 33 && c <= 47) || (c >= 58 && c <= 63)) && (c != '"' && c != '\'' && c != '$');
     }
 
 }

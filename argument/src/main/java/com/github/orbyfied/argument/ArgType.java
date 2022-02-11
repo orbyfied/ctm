@@ -7,6 +7,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringJoiner;
 import java.util.function.Function;
 
 public class ArgType<U, L> {
@@ -57,7 +58,17 @@ public class ArgType<U, L> {
     }
 
     public void apply(U upper, L lower, String operator) {
+//        /* DEBUG */ System.out.println("U: " + upper + ", L: " + lower + ", OP: " + operator);
         applier.accept(upper, lower, operator);
+    }
+
+    public boolean accepts(Class<?> klass) {
+        return lower.isAssignableFrom(klass);
+    }
+
+    @Override
+    public String toString() {
+        return "ArgType(" + upper + ":" + lower + ")";
     }
 
     /////////////////////////////////////////
@@ -107,8 +118,26 @@ public class ArgType<U, L> {
 
     /////////////////////////////////////////
 
+    private static boolean isDigit(char c) {
+        return c >= '0' && c <= '9';
+    }
+
     private static Object parseValueAn(String s) {
-        return s;
+        if (s.startsWith("\"")) {
+            return s.substring(1, s.length() - 1);
+        } else if (isDigit(s.charAt(0))) {
+            StringIterator iter = new StringIterator(s, -1);
+            char c;
+            StringBuilder b = new StringBuilder();
+            boolean hasDecimals = false;
+            while ((c = iter.next()) != StringIterator.DONE) {
+                if (c == ' ' || c == '_') continue;
+                if (c == '.' && !hasDecimals) hasDecimals = true;
+                if (!isDigit(c)) break;
+                b.append(c);
+            }
+            return hasDecimals ? Double.parseDouble(b.toString()) : Long.parseLong(b.toString());
+        } else return new Raw(s);
     }
 
     private static Object parseValue(String s, Class<?> klass) {

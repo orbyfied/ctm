@@ -27,7 +27,11 @@ public class Main {
          String str = argsf.toString();
 //        /* DEBUG */ String str = "source.png border.png 15 --archive=\"wool\" --output-dir=out --corner-image=corners.png -it";
 
-        // parse them
+        // construct maker
+        maker = new Maker("CTM");
+
+        // parse arguments
+        maker.logger.stage("parse-args");
         Args args = new Args();
         args.parse(str, parser -> parser.withOptions(
                 new ArgOption("source-image", Path.class,  false, true),
@@ -44,11 +48,9 @@ public class Main {
 
                 new ArgOption("mirror-overlays", ArgType.mono(OverlayMirroringTransformer.class, Main::parseOverlayMirroring), true, false),
                 new ArgOption("recolor", ArgType.mono(ColoringTransformer.class, Main::parseColoringTransformer), true, false)
-        ));
+        ).withWarningHandler(w -> maker.logger.warn(w)));
 
-        // construct maker and export
-        maker = new Maker("CTM");
-
+        // initialize properties
         maker.outputDir = args.get("output-dir");
         maker.archiveName = args.get("archive-name");
         maker.matches = args.get("matches");
@@ -67,6 +69,7 @@ public class Main {
         transformer.addTransformer(args.get("recolor"));
 
         // export
+        maker.prepareExport();
         maker.loadImages();
         if (maker.testBorderSize)
             maker.testBorderSize();
@@ -80,7 +83,7 @@ public class Main {
     private static Object parseMatch(String s) {
         String[] split = s.split(":");
         if (split.length < 2)
-            throw new IllegalArgumentException("missing match parameters ('<tilename>:<matches>')");
+            throw new IllegalArgumentException("missing match parameters ('<tilename>:<matches>') for input: " + s);
         String tileName = split[0];
         String matches  = split[1];
         return new Match(null).withProperties(matches, tileName);

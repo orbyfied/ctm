@@ -72,6 +72,10 @@ public class Maker {
 
     //////////////////////////////////////////
 
+    public void prepareExport() {
+        logger.stage("export");
+    }
+
     /**
      * Loads all necessary images.
      */
