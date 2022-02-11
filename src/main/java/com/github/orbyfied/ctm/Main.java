@@ -23,6 +23,11 @@ public class Main {
 
     public static void main(String[] args1) {
 
+        if (args1.length == 0) {
+            printHelpMessage();
+            return;
+        }
+
         long t1;
 
         // construct arguments
@@ -84,15 +89,15 @@ public class Main {
 
         // export
         t1 = System.nanoTime();
+        logger.stage("export").info("preparing for export");
         maker.prepareExport();
-        logger.info("preparing for export");
         try {
             maker.loadImages();
             if (maker.testBorderSize)
                 maker.testBorderSize();
             logger.info("exporting " + Template.ALL_TILES_COUNT + " tile(s) and " + maker.matches.size() + " match(es)");
             maker.export();
-            logger.stage("export").info("successfully exported in " + getTimeElapsed(t1));
+            logger.stage("export").ok("successfully exported in " + getTimeElapsed(t1));
         } catch (Exception e) {
             logger.err("error while exporting (elapsed: " + getTimeElapsed(t1) + "):", e);
             e.printStackTrace();
@@ -156,6 +161,33 @@ public class Main {
         int g = Integer.parseInt(hex.substring(2, 4), 16);
         int b = Integer.parseInt(hex.substring(4, 6), 16);
         return new ColoringTransformer(dosource, doborder, docorners, r, g, b);
+    }
+
+    /**
+     * Prints the help message.
+     */
+    private static void printHelpMessage() {
+        println();
+        println("-> HELP: ctm " + VERSION + " by orbyfied (https://github.com/orbyfied/ctm)");
+
+        println(" > Command Line Usage: ");
+        println("     <source> " +
+                "<border> " +
+                "<bordersize> " +
+                "<--archive-name=...> " +
+                "[--output-dir=...] " +
+                "<--matches+=<name>:<match>> " +
+                "[--corner-overlay=...] " +
+                "[--test-border]");
+        println();
+    }
+
+    private static void println(Object o) {
+        System.out.println(o);
+    }
+
+    private static void println() {
+        System.out.println();
     }
 
 }
