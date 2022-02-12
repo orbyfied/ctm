@@ -33,8 +33,7 @@ public class Main {
         for (String arg : args1)
             argsf.append(arg).append(" ");
 
-         String str = argsf.toString();
-//        /* DEBUG */ String str = "source.png border.png 15 --archive=\"wool\" --output-dir=out --corner-image=corners.png -it";
+        String str = argsf.toString();
 
         // construct maker
         maker = new Maker("CTM");

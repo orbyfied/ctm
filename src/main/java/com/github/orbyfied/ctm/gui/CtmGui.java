@@ -1,15 +1,22 @@
 package com.github.orbyfied.ctm.gui;
 
 import com.github.orbyfied.ctm.Main;
+import com.github.orbyfied.ctm.gui.swing.GList;
+import com.github.orbyfied.ctm.process.Maker;
+import com.github.orbyfied.ctm.process.Match;
 import com.github.orbyfied.logging.Logger;
 import com.github.orbyfied.util.IExecutor;
 import com.github.orbyfied.util.TickingExecutor;
 
 import javax.swing.*;
+import javax.swing.border.LineBorder;
 import javax.swing.plaf.metal.MetalScrollBarUI;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.nio.file.Path;
 
 public class CtmGui {
 
@@ -21,7 +28,9 @@ public class CtmGui {
     private GridLayout frameLayout;
     private volatile JFrame frame;
 
-    private JPanel exportOptions;
+    private GList<Match> matchesList;
+
+    private JPanel optionsPanel;
 
     private JScrollPane consoleScrollPane;
     private JTextPane   consoleTextPane;
@@ -79,18 +88,37 @@ public class CtmGui {
         consoleTextPane.setFont(new Font("Courier New", Font.PLAIN, 20));
         consoleTextPane.setAlignmentY(Component.BOTTOM_ALIGNMENT);
         consoleTextPane.setSelectionColor(Color.LIGHT_GRAY);
+        consoleScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        consoleScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
         JScrollBar bar = consoleScrollPane.getVerticalScrollBar();
         bar.setUI(scrollbarUI);
         bar.setUnitIncrement(86);
-        bar = consoleScrollPane.getHorizontalScrollBar();
-        bar.setUI(scrollbarUI);
-        bar.setUnitIncrement(86);
-        consoleScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        JScrollBar bar1 = consoleScrollPane.getHorizontalScrollBar();
+        bar1.setUI(scrollbarUI);
+        bar1.setUnitIncrement(86);
 
         // prepare options
-        exportOptions = new JPanel();
-        exportOptions.setSize(WIDTH, 700);
-        exportOptions.setBackground(Color.DARK_GRAY);
+        optionsPanel = new JPanel();
+        optionsPanel.setSize(WIDTH, 700);
+        optionsPanel.setBackground(Color.DARK_GRAY);
+//
+//        matchesList = new GList<>(CtmGui::createMatchListComponent, (GList<Match> list, int i) -> new Match(Main.maker));
+//        matchesList.setNewItemMessage("New Match");
+//        matchesList.initialize();
+//        matchesList.setBorder(new LineBorder(Color.WHITE, 1));
+
+        JTextField field = new JTextField();
+        field.setPreferredSize(new Dimension(400, 20));
+        field.setEditable(true);
+        optionsPanel.add(field);
+
+        JButton button = new JButton();
+        button.addActionListener(e -> {
+            Maker maker = Main.maker;
+            maker.sourceImagePath = Path.of("d");
+            maker.export();
+        });
+        optionsPanel.add(button);
 
         // construct frame
         SwingUtilities.invokeLater(() -> {
@@ -110,7 +138,7 @@ public class CtmGui {
             frameLayout = new GridLayout();
             frame.setLayout(frameLayout);
 
-            frame.add(exportOptions);
+            frame.add(optionsPanel);
             frame.add(consoleScrollPane);
 
             frame.pack();
@@ -158,7 +186,6 @@ public class CtmGui {
         public void paintThumb(Graphics g, JComponent c, Rectangle trackBounds) {
             g.setColor(new Color(0x2F2F2F));
             g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
-            g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width / 3, trackBounds.height);
         }
 
         @Override
@@ -178,6 +205,33 @@ public class CtmGui {
             jbutton.setMaximumSize(new Dimension(0, 0));
             return jbutton;
         }
+
+    }
+
+    private static Container createMatchListComponent(GList<Match> list,
+                                                      int index,
+                                                      Match value) {
+        final Dimension dims = new Dimension(80, 20);
+
+        JTextField fieldName    = new JTextField();
+        JTextField fieldMatches = new JTextField();
+        fieldName.setEditable(true);
+        fieldMatches.setEditable(true);
+        fieldName.setPreferredSize(dims);
+        fieldMatches.setPreferredSize(dims);
+        fieldName.setBackground(Color.LIGHT_GRAY);
+        fieldMatches.setBackground(Color.LIGHT_GRAY);
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout());
+        panel.add(fieldName);
+        panel.add(fieldMatches);
+        fieldName.addActionListener(e -> {
+            value.tileName = fieldName.getText();
+        });
+        fieldMatches.addActionListener(e -> {
+            value.matches = fieldMatches.getText();
+        });
+        return panel;
 
     }
 
