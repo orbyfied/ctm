@@ -242,6 +242,8 @@ public class ArgParser {
         boolean call = false;
         List<Object> arguments = null;
         while ((c = iter.next()) != StringIterator.DONE) {
+            System.out.println(nameb);
+            System.out.println(iter.index());
             if (c == ' ') continue;
             if (c == '}') break;
             if (c == '(') {

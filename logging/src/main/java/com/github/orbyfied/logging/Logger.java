@@ -1,15 +1,33 @@
 package com.github.orbyfied.logging;
 
+import java.awt.*;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class Logger {
 
-    private static String createLevelString(int level) {
+    public static Color getLevelColor(int level) {
+        Color c;
+        switch (level) {
+            case -5 -> c = new Color(0x292929);
+            case -1 -> c = new Color(0x72B5EF);
+            case  0 -> c = new Color(0x84E777);
+            case  1 -> c = new Color(0xECD46B);
+            case  2 -> c = new Color(0xE77878);
+            default -> { throw new IllegalArgumentException(); }
+        }
+        return c;
+    }
+
+    public static String createLevelString(int level) {
         String s;
         switch (level) {
+            case -5 -> s = "( sign)";
             case -1 -> s = "( info)";
             case  0 -> s = "(   ok)";
             case  1 -> s = "( warn)";
@@ -22,6 +40,8 @@ public class Logger {
     private String name;
     private String tag;
     private String stage;
+
+    private List<BiConsumer<Integer, String>> outputs = new ArrayList<>();
 
     private boolean stackTraces = false;
 
@@ -50,6 +70,11 @@ public class Logger {
         return this;
     }
 
+    public Logger addOutput(BiConsumer<Integer, String> out) {
+        this.outputs.add(out);
+        return this;
+    }
+
     public Logger log(int level, Object... msg) {
         StringBuilder message = new StringBuilder(createLevelString(level));
         message.append(" ");
@@ -72,10 +97,12 @@ public class Logger {
         message.deleteCharAt(message.length() - 1);
         if (transformer != null) transformer.accept(message);
         System.out.println(message);
+        for (BiConsumer<Integer, String> out : outputs)
+            out.accept(level, message.toString());
         return this;
     }
 
-    public Logger log(int level, String stage, Object... msg) {
+    public Logger logStage(int level, String stage, Object... msg) {
         return stage(stage).log(level, msg);
     }
 

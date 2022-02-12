@@ -12,14 +12,26 @@ public class ArgFunctionsTest {
     @Test
     public void test() {
 
-        final String str = "$greeting='HELLO' --a=${print(${repeat(${greeting}, 5)})}";
+        // TODO: fix function parsing
+        // it for some reason doesnt work after a call or something
+
+        final String str =
+                "$greeting='HELLO' " +
+                "$greeting2='HEY' " +
+                "--a=${_print(${_repeat(${greeting}, 5)})} " +
+                "--b=${_print(${_repeat('5', 2)})} " +
+                "--c=${_sqr(8)} " +
+                "--d=${_print(${_repeat(${greeting2}, 5)})} " +
+                "";
 
         ArgContext context = new ArgContext();
-        context.setFunctionValue("repeat", new StringRepeatFunction());
-        context.setFunctionValue("print", new PrintFunction());
+        StdContext.apply(context);
 
         new ArgParser().withOptions(
-                new ArgOption("a", String.class, true, true)
+                new ArgOption("a", String.class, true, false),
+                new ArgOption("b", Double.class, true, false),
+                new ArgOption("c", Double.class, true, false),
+                new ArgOption("d", String.class, true, false)
         ).parse(str, context);
 
         Args args = new Args(context);
@@ -35,23 +47,5 @@ public class ArgFunctionsTest {
     }
 
     ////////////////////////////////
-
-    public static class StringRepeatFunction {
-
-        public String invoke(ArgContext context, String a, int b, Object... other) {
-            return a.repeat(b);
-        }
-
-    }
-
-    public static class PrintFunction {
-
-        public String invoke(ArgContext context, Object o, Object... other) {
-            String str = Objects.toString(o);
-            System.out.println(str);
-            return str;
-        }
-
-    }
 
 }

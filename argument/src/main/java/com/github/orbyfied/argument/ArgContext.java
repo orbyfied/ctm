@@ -15,6 +15,16 @@ public class ArgContext {
 
     private Map<String, Object> symbols;
 
+    public Map<String, Object> getResults() {
+        Map<String, Object> res = new HashMap<>();
+        if (symbols == null) return res;
+        symbols.forEach((k, v) -> {
+            if (!k.startsWith("$"))
+                res.put(k, v);
+        });
+        return res;
+    }
+
     public Map<String, Object> getSymbols() {
         return symbols;
     }

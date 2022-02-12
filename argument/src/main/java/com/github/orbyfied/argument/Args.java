@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 public class Args {
 
     private ArgContext context;
+    private Map<String, Object> results;
 
     public Args() {
         this(new ArgContext());
@@ -17,6 +18,7 @@ public class Args {
     public Args(ArgContext context) {
         Objects.requireNonNull(context, "context cannot be null");
         this.context = context;
+        this.results = context.getResults();
         StdContext.apply(context);
     }
 
@@ -25,11 +27,20 @@ public class Args {
         if (consumer != null)
             consumer.accept(parser);
         parser.parse(s, context);
+        results = context.getResults();
         return this;
     }
 
     public Map<String, Object> getResult() {
+        return results;
+    }
+
+    public Map<String, Object> getSymbols() {
         return context.getSymbols();
+    }
+
+    public ArgContext getContext() {
+        return context;
     }
 
     public <T> T get(String key) {

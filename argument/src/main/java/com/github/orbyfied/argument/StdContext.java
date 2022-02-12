@@ -6,6 +6,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 public class StdContext {
 
@@ -62,6 +63,77 @@ public class StdContext {
                         ensurelenhead(Integer.toHexString(r), 2, "0") +
                         ensurelenhead(Integer.toHexString(g), 2, "0") +
                         ensurelenhead(Integer.toHexString(b), 2, "0");
+            }
+        });
+
+        context.setFunctionValue("_add", new Object() {
+            public double invoke(ArgContext ctx, double a, double b, Object... other) {
+                double c = a + b;
+                if (other.length != 0) {
+                    for (Object d : other)
+                        c += (double)d;
+                }
+                return c;
+            }
+        });
+
+        context.setFunctionValue("_sub", new Object() {
+            public double invoke(ArgContext ctx, double a, double b, Object... other) {
+                double c = a - b;
+                if (other.length != 0) {
+                    for (Object d : other)
+                        c -= (double)d;
+                }
+                return c;
+            }
+        });
+
+        context.setFunctionValue("_mul", new Object() {
+            public double invoke(ArgContext ctx, double a, double b, Object... other) {
+                double c = a * b;
+                if (other.length != 0) {
+                    for (Object d : other)
+                        c *= (double)d;
+                }
+                return c;
+            }
+        });
+
+        context.setFunctionValue("_div", new Object() {
+            public double invoke(ArgContext ctx, double a, double b, Object... other) {
+                double c = a / b;
+                if (other.length != 0) {
+                    for (Object d : other)
+                        c /= (double)d;
+                }
+                return c;
+            }
+        });
+
+        context.setFunctionValue("_sqr", new Object() {
+            public double invoke(ArgContext ctx, double a, Object... other) {
+                return a * a;
+            }
+        });
+
+        context.setFunctionValue("_pow", new Object() {
+            public double invoke(ArgContext ctx, double a, double b, Object... other) {
+                return Math.pow(a, b);
+            }
+        });
+
+        context.setFunctionValue("_sqrt", new Object() {
+            public double invoke(ArgContext ctx, double a, Object... other) {
+                return Math.sqrt(a);
+            }
+        });
+
+        context.setFunctionValue("_print", new Object() {
+            public String invoke(ArgContext ctx, Object o, Object... other) {
+                System.out.println("========== PRINT CALLED");
+                String str = Objects.toString(o);
+                System.out.println(str);
+                return str;
             }
         });
     }

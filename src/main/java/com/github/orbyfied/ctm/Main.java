@@ -5,6 +5,7 @@ import com.github.orbyfied.argument.ArgType;
 import com.github.orbyfied.argument.Args;
 import com.github.orbyfied.ctm.feature.ColoringTransformer;
 import com.github.orbyfied.ctm.feature.OverlayMirroringTransformer;
+import com.github.orbyfied.ctm.gui.CtmGui;
 import com.github.orbyfied.ctm.process.ChainedTransformer;
 import com.github.orbyfied.ctm.process.Maker;
 import com.github.orbyfied.ctm.process.Match;
@@ -21,13 +22,9 @@ public class Main {
     public static final String VERSION = "0.2.2R5";
 
     public static Maker maker;
+    public static CtmGui gui;
 
     public static void main(String[] args1) {
-
-        if (args1.length == 0) {
-            printHelpMessage();
-            return;
-        }
 
         long t1;
 
@@ -42,7 +39,13 @@ public class Main {
         // construct maker
         maker = new Maker("CTM");
         Logger logger = maker.logger;
-        logger.info("-> ctm " + VERSION + " by orbyfied (https://github.com/orbyfied/ctm)");
+        logger.log(-5, "-> ctm " + VERSION + " by orbyfied (https://github.com/orbyfied/ctm)");
+
+        if (args1.length == 0) {
+            printHelpMessage();
+            enterGui();
+            return;
+        }
 
         // parse arguments
         t1 = System.nanoTime();
@@ -111,6 +114,12 @@ public class Main {
             e.printStackTrace();
         }
 
+    }
+
+    public static void enterGui() {
+        maker.logger.stage("gui").info("entering GUI mode");
+        gui = new CtmGui();
+        gui.open();
     }
 
     private static String getTimeElapsed(long nanos) {
@@ -193,10 +202,8 @@ public class Main {
      */
     private static void printHelpMessage() {
         println();
-        println("-> HELP: ctm " + VERSION + " by orbyfied (https://github.com/orbyfied/ctm)");
-
         println(" > Command Line Usage: ");
-        println("     <source> " +
+        println(" ' ctm <source> " +
                 "<border> " +
                 "<bordersize> " +
                 "<--archive-name=...> " +
@@ -204,7 +211,7 @@ public class Main {
                 "<--matches+=<name>:<match>> " +
                 "[--corner-overlay=...] " +
                 "[--test-border] " +
-                "[--rescale=(w,h)]");
+                "[--rescale=(w,h)] '");
         println();
     }
 
