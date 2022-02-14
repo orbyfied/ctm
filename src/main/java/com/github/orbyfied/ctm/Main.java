@@ -37,6 +37,7 @@ public class Main {
 
         // construct maker
         maker = new Maker("CTM");
+        maker.reset();
         Logger logger = maker.logger;
         logger.log(-5, "-> ctm " + VERSION + " by orbyfied (https://github.com/orbyfied/ctm)");
 
@@ -70,7 +71,7 @@ public class Main {
                 new ArgOption("recolor", ArgType.mono(ColoringTransformer.class, Main::parseColoringTransformer), true, false),
 
                 new ArgOption("rescale", ArgType.mono(Vec2.class, Main::parseVec2), true, false)
-        ).withWarningHandler(w -> logger.warn(w)));
+        ).withWarningHandler(logger::warn));
 
         // initialize properties
         maker.outputDir = args.get("output-dir");
@@ -97,7 +98,15 @@ public class Main {
         logger.ok("parsed command line in " + getTimeElapsed(t1));
 
         // export
-        t1 = System.nanoTime();
+        doExport();
+
+    }
+
+    public static void doExport() {
+        Logger logger = maker.logger;
+
+        // export
+        long t1 = System.nanoTime();
         logger.stage("export").info("preparing for export");
         maker.prepareExport();
         try {
@@ -112,7 +121,6 @@ public class Main {
             logger.err("error while exporting (elapsed: " + getTimeElapsed(t1) + "):", e);
             e.printStackTrace();
         }
-
     }
 
     public static void enterGui() {

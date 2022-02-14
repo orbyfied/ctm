@@ -14,6 +14,7 @@ import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Maker {
@@ -77,6 +78,25 @@ public class Maker {
     }
 
     //////////////////////////////////////////
+
+    public void reset() {
+
+        archiveName = null;
+        matches = new ArrayList<>();
+        outputDir = null;
+        archiveDir = null;
+
+        sourceImagePath = null;
+        borderImagePath = null;
+        cornerImagePath = null;
+        borderSizePx = 0;
+        testBorderSize = false;
+        rescale = null;
+        makeBlockFile = true;
+
+        useInlineCorners = false;
+
+    }
 
     public void prepareExport() {
         logger.stage("export");

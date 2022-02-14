@@ -1,7 +1,9 @@
 package com.github.orbyfied.ctm.gui;
 
 import com.github.orbyfied.ctm.Main;
+import com.github.orbyfied.ctm.gui.swing.GBrowseButton;
 import com.github.orbyfied.ctm.gui.swing.GList;
+import com.github.orbyfied.ctm.gui.swing.GSection;
 import com.github.orbyfied.ctm.process.Maker;
 import com.github.orbyfied.ctm.process.Match;
 import com.github.orbyfied.logging.Logger;
@@ -9,13 +11,11 @@ import com.github.orbyfied.util.IExecutor;
 import com.github.orbyfied.util.TickingExecutor;
 
 import javax.swing.*;
-import javax.swing.border.LineBorder;
+import javax.swing.plaf.metal.MetalButtonUI;
 import javax.swing.plaf.metal.MetalScrollBarUI;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.nio.file.Path;
 
 public class CtmGui {
@@ -30,7 +30,24 @@ public class CtmGui {
 
     private GList<Match> matchesList;
 
+    private JPanel contentPanel;
     private JPanel optionsPanel;
+    private JPanel previewPanel;
+
+    private JButton exportButton;
+    private JTextField archiveNameField;
+    private JTextField outputDirField;
+    private GBrowseButton outputDirBrowse;
+
+    private JTextField sourceImageField;
+    private JTextField borderImageField;
+    private JTextField cornerImageField;
+
+    private JTextField matchNameField;
+    private JTextField matchTargetField;
+
+    private JTextField borderSizeField;
+    private JCheckBox testBorderCheckbox;
 
     private JScrollPane consoleScrollPane;
     private JTextPane   consoleTextPane;
@@ -86,39 +103,186 @@ public class CtmGui {
         consoleTextPane.setEditable(false);
         consoleTextPane.setBackground(Color.DARK_GRAY.brighter());
         consoleTextPane.setFont(new Font("Courier New", Font.PLAIN, 20));
-        consoleTextPane.setAlignmentY(Component.BOTTOM_ALIGNMENT);
         consoleTextPane.setSelectionColor(Color.LIGHT_GRAY);
         consoleScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         consoleScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-        JScrollBar bar = consoleScrollPane.getVerticalScrollBar();
-        bar.setUI(scrollbarUI);
-        bar.setUnitIncrement(86);
-        JScrollBar bar1 = consoleScrollPane.getHorizontalScrollBar();
-        bar1.setUI(scrollbarUI);
-        bar1.setUnitIncrement(86);
+        JScrollBar barh = consoleScrollPane.getHorizontalScrollBar();
+        barh.setUI(new MyScrollbarUI());
+        barh.setUnitIncrement(86);
+        JScrollBar barv = consoleScrollPane.getVerticalScrollBar();
+        barv.setUI(new MyScrollbarUI());
+        barv.setVisible(false);
+        barv.setUnitIncrement(86);
+        consoleScrollPane.setVerticalScrollBar(barv);
 
         // prepare options
         optionsPanel = new JPanel();
-        optionsPanel.setSize(WIDTH, 700);
         optionsPanel.setBackground(Color.DARK_GRAY);
-//
-//        matchesList = new GList<>(CtmGui::createMatchListComponent, (GList<Match> list, int i) -> new Match(Main.maker));
-//        matchesList.setNewItemMessage("New Match");
-//        matchesList.initialize();
-//        matchesList.setBorder(new LineBorder(Color.WHITE, 1));
+//        optionsPanel.setLayout(new GridLayout());
 
-        JTextField field = new JTextField();
-        field.setPreferredSize(new Dimension(400, 20));
-        field.setEditable(true);
-        optionsPanel.add(field);
-
-        JButton button = new JButton();
-        button.addActionListener(e -> {
+        optionsPanel.add(exportButton = new JButton("Export"));
+        exportButton.setPreferredSize(new Dimension(90, 30));
+        exportButton.setUI(new MyButtonUI());
+        exportButton.addActionListener(e -> {
             Maker maker = Main.maker;
-            maker.sourceImagePath = Path.of("d");
-            maker.export();
+            logger.stage("gui-export");
+
+            String archivename = archiveNameField.getText();
+            if (archivename.isBlank()) {
+                logger.err("no archive name specified");
+                return;
+            }
+            maker.archiveName = archivename;
+
+            String outputdir = outputDirField.getText();
+            if (outputdir.isBlank()) {
+                outputdir = ".";
+            }
+            maker.outputDir = Path.of(outputdir);
+
+            String sourceImage = sourceImageField.getText();
+            if (sourceImage.isBlank()) {
+                logger.err("no source image specified");
+                return;
+            }
+            maker.sourceImagePath = Path.of(sourceImage);
+
+            String borderImage = borderImageField.getText();
+            if (borderImage.isBlank()) {
+                logger.err("no border image specified");
+                return;
+            }
+            maker.borderImagePath = Path.of(borderImage);
+
+            String cornerImage = cornerImageField.getText();
+            if (!cornerImage.isBlank()) {
+                maker.cornerImagePath = Path.of(cornerImage);
+            }
+
+            String borderSize = borderSizeField.getText();
+            if (borderSize.isBlank()) {
+                borderSize = "0";
+            }
+            maker.borderSizePx = Integer.parseInt(borderSize);
+
+            maker.testBorderSize = testBorderCheckbox.isSelected();
+
+            String matchTarget = matchTargetField.getText();
+            if (matchTarget.isBlank()) {
+                logger.err("no match target specified");
+                return;
+            }
+
+            String matchName = matchNameField.getText();
+            if (matchName.isBlank()) {
+                matchName = matchTarget;
+            }
+
+            Match match = new Match(maker).withProperties(matchTarget, matchName);
+            maker.addMatch(match);
+
+            Main.doExport();
         });
-        optionsPanel.add(button);
+        exportButton.setForeground(Color.WHITE);
+
+        GSection section0 = new GSection("Archive", optionsPanel);
+        section0.withComponent(archiveNameField = new JTextField(), f -> {
+            f.setPreferredSize(new Dimension(100, 20));
+        });
+
+        GSection section1 = new GSection("Output", optionsPanel);
+        section1.withComponent(outputDirField = new JTextField(), f -> {
+            f.setPreferredSize(new Dimension(100, 20));
+        }).withComponent(outputDirBrowse = new GBrowseButton(
+                "all",
+                optionsPanel,
+                path -> outputDirField.setText(path.toString()),
+                GBrowseButton.SAVE, GBrowseButton.DIRS), b -> {
+            b.setPreferredSize(new Dimension(50, 20));
+        });
+
+
+        JPanel sourcesPanel = new JPanel();
+        sourcesPanel.setBackground(new Color(0, 0, 0, 0));
+        GridLayout lsp = new GridLayout();
+        lsp.setRows(3);
+        lsp.setColumns(1);
+        sourcesPanel.setLayout(lsp);
+        optionsPanel.add(sourcesPanel);
+
+        new GSection("Source", sourcesPanel)
+                .withComponent(sourceImageField = new JTextField(), f -> {
+                    f.setPreferredSize(new Dimension(100, 20));
+                }).withComponent(new GBrowseButton(
+                        "all",
+                        optionsPanel,
+                        path -> sourceImageField.setText(path.toString()),
+                        GBrowseButton.OPEN, GBrowseButton.FILES), b -> {
+            b.setExtensions("png", "jpg", "jpeg", "bmp");
+            b.setPreferredSize(new Dimension(50, 20));
+        });
+
+        new GSection("Border", sourcesPanel)
+                .withComponent(borderImageField = new JTextField(), f -> {
+                    f.setPreferredSize(new Dimension(100, 20));
+                }).withComponent(new GBrowseButton(
+                "all",
+                optionsPanel,
+                path -> borderImageField.setText(path.toString()),
+                GBrowseButton.OPEN, GBrowseButton.FILES), b -> {
+            b.setExtensions("png", "jpg", "jpeg", "bmp");
+            b.setPreferredSize(new Dimension(50, 20));
+        });
+
+        new GSection("Corner", sourcesPanel)
+                .withComponent(cornerImageField = new JTextField(), f -> {
+                    f.setPreferredSize(new Dimension(100, 20));
+                }).withComponent(new GBrowseButton(
+                "all",
+                optionsPanel,
+                path -> cornerImageField.setText(path.toString()),
+                GBrowseButton.OPEN, GBrowseButton.FILES), b -> {
+            b.setExtensions("png", "jpg", "jpeg", "bmp");
+            b.setPreferredSize(new Dimension(50, 20));
+        });
+
+        new GSection("Thickness", optionsPanel)
+                .withComponent(borderSizeField = new JTextField(), f -> {
+                    f.setPreferredSize(new Dimension(50, 20));
+                }).withComponent(testBorderCheckbox = new JCheckBox("Test"), c -> {
+            c.setBackground(new Color(0, 0, 0, 0));
+        });
+
+        new GSection("Match", optionsPanel)
+                .withComponent(new JPanel(), p -> {
+                    GridLayout l = new GridLayout();
+                    l.setRows(2);
+                    l.setColumns(2);
+                    p.setLayout(l);
+                    p.setBackground(new Color(0, 0, 0, 0));
+                    p.setPreferredSize(new Dimension(200, 40));
+                    JLabel label;
+                    p.add(label = new JLabel("Name"));
+                    label.setForeground(Color.LIGHT_GRAY);
+                    p.add(matchNameField = new JTextField());
+                    matchNameField.setPreferredSize(new Dimension(100, 20));
+                    p.add(label = new JLabel("Target"));
+                    label.setForeground(Color.LIGHT_GRAY);
+                    p.add(matchTargetField = new JTextField());
+                    matchTargetField.setPreferredSize(new Dimension(150, 20));
+                });
+
+        // prepare preview
+        previewPanel = new JPanel();
+        previewPanel.setBackground(new Color(0x343434));
+
+        contentPanel = new JPanel();
+        GridLayout contentPanelLayout = new GridLayout();
+        contentPanelLayout.setColumns(2);
+        contentPanelLayout.setRows(1);
+        contentPanel.setLayout(contentPanelLayout);
+        contentPanel.add(optionsPanel);
+        contentPanel.add(previewPanel);
 
         // construct frame
         SwingUtilities.invokeLater(() -> {
@@ -136,9 +300,11 @@ public class CtmGui {
             frame.setVisible(true);
 
             frameLayout = new GridLayout();
+            frameLayout.setRows(2);
+            frameLayout.setColumns(1);
             frame.setLayout(frameLayout);
 
-            frame.add(optionsPanel);
+            frame.add(contentPanel);
             frame.add(consoleScrollPane);
 
             frame.pack();
@@ -208,6 +374,45 @@ public class CtmGui {
 
     }
 
+    private static class MyButtonUI extends MetalButtonUI {
+
+        public MyButtonUI() {
+
+            super();
+
+        }
+
+        @Override
+        public void paint(Graphics g1, JComponent c) {
+            AbstractButton b = (AbstractButton)c;
+            Graphics2D g = (Graphics2D)g1;
+            ButtonModel model = b.getModel();
+
+            g.setColor(new Color(0x313647));
+            g.fillRect(0, 0, c.getWidth(), c.getHeight());
+
+            g.setColor(Color.WHITE);
+            paintText(g1, b, b.getBounds(), b.getText());
+            super.paint(g1, c);
+        }
+
+        @Override
+        public void paintButtonPressed(Graphics g, AbstractButton b) {
+            g.setColor(Color.BLACK);
+            paintText(g, b, b.getBounds(), b.getText());
+            g.setColor(Color.WHITE);
+            g.fillRect(0, 0, b.getSize().width, b.getSize().height);
+        }
+
+        public void paintBorder(Graphics g) {
+        }
+
+        @Override
+        protected void paintFocus(Graphics g, AbstractButton b,
+                                  Rectangle viewRect, Rectangle textRect, Rectangle iconRect) {
+        }
+    }
+
     private static Container createMatchListComponent(GList<Match> list,
                                                       int index,
                                                       Match value) {
@@ -229,7 +434,7 @@ public class CtmGui {
             value.tileName = fieldName.getText();
         });
         fieldMatches.addActionListener(e -> {
-            value.matches = fieldMatches.getText();
+            value.target = fieldMatches.getText();
         });
         return panel;
 
