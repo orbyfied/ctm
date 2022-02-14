@@ -9,7 +9,7 @@ plugins {
 
 ext {
     mGroup   = "com.github.orbyfied.ctm"
-    mVersion = "0.2.2R5"
+    mVersion = "0.3.0R1"
 }
 
 group rootProject.mGroup
